@@ -96,7 +96,7 @@ func (c *Client) buildRequest(ctx context.Context, req Request) (*http.Request, 
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("X-N8N-API-KEY", req.AuthToken)
+	httpReq.Header.Set("Authorization", "Bearer "+req.AuthToken)
 
 	return httpReq, nil
 }

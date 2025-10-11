@@ -2,19 +2,19 @@
 
 ### issues report
 
-we are always looking for ways to improve n8n-go. if you have any suggestions or bug reports, please open an issue on our github repository.
+we are always looking for ways to improve flowise-go. if you have any suggestions or bug reports, please open an issue on our github repository.
 
 ### code contribution
 
-we welcome contributions to n8n-go. if you would like to contribute, please follow these steps:
+we welcome contributions to flowise-go. if you would like to contribute, please follow these steps:
 
 1. fork the repository
 ```
-git clone https://github.com/your-username/n8n-go.git
-cd n8n-go
+git clone https://github.com/your-username/flowise-go.git
+cd flowise-go
 
-git remote add upstream https://github.com/yeeaiclub/n8n-go.git
-git remote add origin https://github.com/your-username/n8n-go.git
+git remote add upstream https://github.com/yeeaiclub/flowise-go.git
+git remote add origin https://github.com/your-username/flowise-go.git
 ```
 2. create a new branch for your feature or bug fix
 ```
