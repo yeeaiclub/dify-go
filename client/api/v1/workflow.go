@@ -1,13 +1,21 @@
-package api
+// Copyright The yeeaiclub Authors
+// SPDX-License-Identifier: Apache-2.0
+
+package v1
 
 import (
 	"context"
 	"encoding/json"
-	log "github.com/yeeaiclub/dify-go/internal/logger"
 	"net/http"
 
+	log "github.com/yeeaiclub/dify-go/internal/logger"
+
 	"github.com/yeeaiclub/dify-go/internal/handler"
-	"github.com/yeeaiclub/dify-go/types"
+	"github.com/yeeaiclub/dify-go/schema"
+)
+
+const (
+	defaultChannelBufferSize = 10
 )
 
 // Workflow represents a client for interacting with the workflow API endpoints.
@@ -29,9 +37,8 @@ func NewWorkflow(baseURL, apiKey string) *Workflow {
 // RunStream executes a workflow. Cannot execute if there is no published workflow.
 func (w *Workflow) RunStream(
 	ctx context.Context,
-	req types.RunWorkflowRequest,
-) (chan types.RunWorkflowResponse, error) {
-
+	req schema.RunWorkflowRequest,
+) (chan schema.RunWorkflowResponse, error) {
 	r, err := handler.NewRequestBuilder().
 		BaseURL(w.baseURL).
 		Token(w.apiKey).
@@ -39,11 +46,10 @@ func (w *Workflow) RunStream(
 		Method(http.MethodPost).
 		Body(req).
 		Build()
-
 	if err != nil {
 		return nil, err
 	}
-	ch := make(chan types.RunWorkflowResponse, 10)
+	ch := make(chan schema.RunWorkflowResponse, defaultChannelBufferSize)
 	eventCh, err := w.client.SendStream(ctx, r)
 	if err != nil {
 		return nil, err
@@ -53,13 +59,13 @@ func (w *Workflow) RunStream(
 		for {
 			select {
 			case <-ctx.Done():
-				log.Debugf("context cancelled: %v", ctx.Err())
+				log.Debugf("context canceled: %v", ctx.Err())
 				return
 			case value, ok := <-eventCh:
 				if !ok {
 					return
 				}
-				var resp types.RunWorkflowResponse
+				var resp schema.RunWorkflowResponse
 				err := json.Unmarshal(value.Body, &resp)
 				if err != nil {
 					log.Errorf("failed to unmarshal json: %v", err)
@@ -69,7 +75,7 @@ func (w *Workflow) RunStream(
 				case ch <- resp:
 					// Message sent successfully
 				case <-ctx.Done():
-					// Context cancelled while sending
+					// Context canceled while sending
 					return
 				}
 			}

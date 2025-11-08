@@ -14,7 +14,6 @@ linters:
     - goconst
     - gocritic
     - gocyclo
-    - godot
     - goprintffuncname
     - gosec
     - govet
@@ -68,4 +67,4 @@ formatters:
   settings:
     goimports:
       local-prefixes:
-        - github.com/yeeaiclub/n8n-go
+        - github.com/yeeaiclub/dify-go

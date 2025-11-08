@@ -1,16 +1,5 @@
-// Copyright 2025 yeeaiclub
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Copyright The yeeaiclub Authors
+// SPDX-License-Identifier: Apache-2.0
 
 package log
 
@@ -21,16 +10,24 @@ import (
 	"sync"
 )
 
+// Level represents the log level type, used to control the verbosity of log output
 type Level int32
 
+// Predefined log level constants
 const (
+	// DebugLevel is used for the most detailed debug information
 	DebugLevel Level = iota
+	// InfoLevel is used for general informational logs
 	InfoLevel
+	// WarnLevel is used for warning messages that may indicate potential issues but don't prevent program execution
 	WarnLevel
+	// ErrorLevel is used for error messages that indicate problems but allow the program to continue running
 	ErrorLevel
+	// FatalLevel is used for critical errors that cause the program to exit after logging
 	FatalLevel
 )
 
+// String returns the string representation of the log level
 func (l Level) String() string {
 	switch l {
 	case DebugLevel:
@@ -48,29 +45,33 @@ func (l Level) String() string {
 	}
 }
 
+// Logger defines the interface for a logger, providing multiple log levels and formatting methods
 type Logger interface {
-	Debug(args ...interface{})
-	Info(args ...interface{})
-	Warn(args ...interface{})
-	Error(args ...interface{})
-	Fatal(args ...interface{})
+	Debug(args ...any)
+	Info(args ...any)
+	Warn(args ...any)
+	Error(args ...any)
+	Fatal(args ...any)
 
-	Debugf(format string, args ...interface{})
-	Infof(format string, args ...interface{})
-	Warnf(format string, args ...interface{})
-	Errorf(format string, args ...interface{})
-	Fatalf(format string, args ...interface{})
+	Debugf(format string, args ...any)
+	Infof(format string, args ...any)
+	Warnf(format string, args ...any)
+	Errorf(format string, args ...any)
+	Fatalf(format string, args ...any)
 
 	SetLevel(level Level)
 	GetLevel() Level
 }
 
+// BaseLogger is the basic implementation of the Logger interface, providing thread-safe log level control
+// and common logging logic
 type BaseLogger struct {
 	level Level
 	mu    sync.Mutex
 	impl  BaseImplementation
 }
 
+// BaseImplementation defines the interface for underlying log output, used to implement specific log output methods
 type BaseImplementation interface {
 	Debug(msg string)
 	Info(msg string)
@@ -79,6 +80,9 @@ type BaseImplementation interface {
 	Fatal(msg string)
 }
 
+// New creates a new logger instance
+// writer: the log output destination
+// level: the log level threshold, logs below this level will be ignored
 func New(writer io.Writer, level Level) Logger {
 	return &BaseLogger{
 		level: level,
@@ -87,6 +91,8 @@ func New(writer io.Writer, level Level) Logger {
 	}
 }
 
+// SetLevel sets the level of the logger
+// level: the new log level, panics if the level is invalid
 func (l *BaseLogger) SetLevel(level Level) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -96,78 +102,92 @@ func (l *BaseLogger) SetLevel(level Level) {
 	l.level = level
 }
 
+// GetLevel gets the current level of the logger
 func (l *BaseLogger) GetLevel() Level {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	return l.level
 }
 
+// canLogAt checks if logs at the specified level should be recorded
+// v: the log level to check
+// returns true if logs at this level should be recorded
 func (l *BaseLogger) canLogAt(v Level) bool {
 	return v >= l.GetLevel()
 }
 
-func (l *BaseLogger) Debug(args ...interface{}) {
+// Debug logs a message at debug level
+func (l *BaseLogger) Debug(args ...any) {
 	if !l.canLogAt(DebugLevel) {
 		return
 	}
 	l.impl.Debug(fmt.Sprint(args...))
 }
 
-func (l *BaseLogger) Info(args ...interface{}) {
+// Info logs a message at info level
+func (l *BaseLogger) Info(args ...any) {
 	if !l.canLogAt(InfoLevel) {
 		return
 	}
 	l.impl.Info(fmt.Sprint(args...))
 }
 
-func (l *BaseLogger) Warn(args ...interface{}) {
+// Warn logs a message at warn level
+func (l *BaseLogger) Warn(args ...any) {
 	if !l.canLogAt(WarnLevel) {
 		return
 	}
 	l.impl.Warn(fmt.Sprint(args...))
 }
 
-func (l *BaseLogger) Error(args ...interface{}) {
+// Error logs a message at error level
+func (l *BaseLogger) Error(args ...any) {
 	if !l.canLogAt(ErrorLevel) {
 		return
 	}
 	l.impl.Error(fmt.Sprint(args...))
 }
 
-func (l *BaseLogger) Fatal(args ...interface{}) {
+// Fatal logs a message at fatal level and exits the program
+func (l *BaseLogger) Fatal(args ...any) {
 	l.impl.Fatal(fmt.Sprint(args...))
 	os.Exit(1)
 }
 
-func (l *BaseLogger) Debugf(format string, args ...interface{}) {
+// Debugf logs a formatted message at debug level
+func (l *BaseLogger) Debugf(format string, args ...any) {
 	if !l.canLogAt(DebugLevel) {
 		return
 	}
 	l.impl.Debug(fmt.Sprintf(format, args...))
 }
 
-func (l *BaseLogger) Infof(format string, args ...interface{}) {
+// Infof logs a formatted message at info level
+func (l *BaseLogger) Infof(format string, args ...any) {
 	if !l.canLogAt(InfoLevel) {
 		return
 	}
 	l.impl.Info(fmt.Sprintf(format, args...))
 }
 
-func (l *BaseLogger) Warnf(format string, args ...interface{}) {
+// Warnf logs a formatted message at warn level
+func (l *BaseLogger) Warnf(format string, args ...any) {
 	if !l.canLogAt(WarnLevel) {
 		return
 	}
 	l.impl.Warn(fmt.Sprintf(format, args...))
 }
 
-func (l *BaseLogger) Errorf(format string, args ...interface{}) {
+// Errorf logs a formatted message at error level
+func (l *BaseLogger) Errorf(format string, args ...any) {
 	if !l.canLogAt(ErrorLevel) {
 		return
 	}
 	l.impl.Error(fmt.Sprintf(format, args...))
 }
 
-func (l *BaseLogger) Fatalf(format string, args ...interface{}) {
+// Fatalf logs a formatted message at fatal level and exits the program
+func (l *BaseLogger) Fatalf(format string, args ...any) {
 	l.impl.Fatal(fmt.Sprintf(format, args...))
 	os.Exit(1)
 }

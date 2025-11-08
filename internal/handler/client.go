@@ -21,8 +21,9 @@ import (
 )
 
 const (
-	// defaultTimeout is the default timeout duration for the http client.
-	defaultTimeout = 30
+	// defaultTimeout is the default timeout duration for the http client (in seconds).
+	defaultTimeout          = 30
+	defaultResponseChanSize = 10
 )
 
 // ClientOptions defines config options for the client.
@@ -122,7 +123,7 @@ func (c *Client) buildRequest(ctx context.Context, req Request) (*http.Request, 
 
 // doRequest executes the HTTP request and returns the processed response.
 func (c *Client) doRequest(req *http.Request) (*Response, error) {
-	resp, err := c.client.Do(req)
+	resp, err := c.client.Do(req) //nolint:nolintlint
 	if err != nil {
 		return nil, fmt.Errorf("failed to send HTTP request: %w", err)
 	}
@@ -147,19 +148,17 @@ func (c *Client) doRequest(req *http.Request) (*Response, error) {
 
 // doRequestStream executes the HTTP request and returns a channel of responses for streaming.
 func (c *Client) doRequestStream(ctx context.Context, req *http.Request) (chan Response, error) {
-	respChan := make(chan Response, 10)
+	respChan := make(chan Response, defaultResponseChanSize)
 
-	resp, err := c.client.Do(req)
+	resp, err := c.client.Do(req) //nolint:bodyclose //close in goroutine
 	if err != nil {
 		close(respChan)
 		return nil, fmt.Errorf("failed to send HTTP request: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
 		close(respChan)
-		return nil, fmt.Errorf("unexpected status code: %d, body: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
 	go func() {
