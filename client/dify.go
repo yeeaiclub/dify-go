@@ -1,7 +1,6 @@
 package client
 
-type DifyService struct {
-}
+type DifyService struct{}
 
 func NewDifyService() *DifyService {
 	return &DifyService{}

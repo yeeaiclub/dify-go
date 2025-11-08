@@ -28,9 +28,15 @@ type RunWorkflowResponseData struct {
 	Status      string         `json:"status"`
 	Outputs     map[string]any `json:"outputs"`
 	Error       string         `json:"error"`
-	ElapsedTime string         `json:"elapsed_time"`
+	ElapsedTime float64        `json:"elapsed_time"`
 	TotalToken  int            `json:"total_token"`
 	TotalSteps  int            `json:"total_steps"`
 	CreatedAt   int            `json:"created_at"`
 	FinishedAt  int            `json:"finished_at"`
+}
+
+type StreamEvent[T any] struct {
+	Err  string `json:"err"`
+	Data T      `json:"data"`
+	Done bool   `json:"done"`
 }
