@@ -1,4 +1,4 @@
-module github.com/yeeaiclub/flowise-go
+module github.com/yeeaiclub/dify-go
 
 go 1.24.1
 

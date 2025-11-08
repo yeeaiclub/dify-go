@@ -23,6 +23,8 @@ type Builder interface {
 	Body(body any) Builder
 	// Query add a Query struct to the request.
 	Query(queryStruct any) Builder
+	// Headers .
+	Headers(headers map[string]string) Builder
 	// Build return the Request
 	Build() (Request, error)
 }
@@ -34,6 +36,7 @@ type Request struct {
 	Path      string
 	Method    string
 	Body      any
+	Headers   map[string]string
 	Query     []any
 }
 
@@ -90,6 +93,12 @@ func (r *RequestBuilder) Query(queryStruct any) Builder {
 // PathParm add a path parameter to the request Path.
 func (r *RequestBuilder) PathParm(param string) Builder {
 	r.request.Path = r.request.Path + "/" + param
+	return r
+}
+
+// Headers add header to the request.
+func (r *RequestBuilder) Headers(headers map[string]string) Builder {
+	r.request.Headers = headers
 	return r
 }
 
