@@ -6,6 +6,7 @@ package v1
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	log "github.com/yeeaiclub/dify-go/internal/logger"
@@ -34,15 +35,19 @@ func NewWorkflow(baseURL, apiKey string) *Workflow {
 	}
 }
 
-// RunStream executes a workflow. Cannot execute if there is no published workflow.
+// RunStream executes a workflow in streaming mode. Cannot execute if there is no published workflow.
 func (w *Workflow) RunStream(
 	ctx context.Context,
 	req schema.RunWorkflowRequest,
 ) (chan schema.RunWorkflowResponse, error) {
+	if req.ResponseMode != "stream" {
+		return nil, errors.New("response mode must be stream")
+	}
+
 	r, err := handler.NewRequestBuilder().
 		BaseURL(w.baseURL).
 		Token(w.apiKey).
-		Path("workflows/run").
+		Path("v1/workflows/run").
 		Method(http.MethodPost).
 		Body(req).
 		Build()
@@ -82,4 +87,35 @@ func (w *Workflow) RunStream(
 		}
 	}()
 	return ch, nil
+}
+
+// Run executes a workflow in blocking mode, Cannot execute if there is no published workflow.
+func (w *Workflow) Run(
+	ctx context.Context,
+	req schema.RunWorkflowRequest,
+) (schema.RunWorkflowResponse, error) {
+	if req.ResponseMode != "blocking" {
+		return schema.RunWorkflowResponse{}, errors.New("response mode must be blocking")
+	}
+
+	r, err := handler.NewRequestBuilder().
+		BaseURL(w.baseURL).
+		Token(w.apiKey).
+		Path("v1/workflows/run").
+		Method(http.MethodPost).
+		Body(req).
+		Build()
+	if err != nil {
+		return schema.RunWorkflowResponse{}, err
+	}
+	resp, err := w.client.Send(ctx, r)
+	if err != nil {
+		return schema.RunWorkflowResponse{}, err
+	}
+	var respData schema.RunWorkflowResponse
+	err = json.Unmarshal(resp.Body, &respData)
+	if err != nil {
+		return schema.RunWorkflowResponse{}, err
+	}
+	return respData, nil
 }
