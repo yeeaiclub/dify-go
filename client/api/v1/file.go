@@ -12,12 +12,14 @@ import (
 	"github.com/yeeaiclub/dify-go/schema"
 )
 
+// FileService is a service for file operations.
 type FileService struct {
 	client  *handler.Client // HTTP client for making API requests
 	apiKey  string          // API key for authentication
 	baseURL string          // Base URL of the API server
 }
 
+// NewFileService creates a new FileService instance with the provided baseURL and apiKey.
 func NewFileService(baseURL, apiKey string) *FileService {
 	return &FileService{
 		client:  handler.NewClient(),
