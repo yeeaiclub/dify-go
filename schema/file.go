@@ -1,3 +1,6 @@
+// Copyright The yeeaiclub Authors
+// SPDX-License-Identifier: Apache-2.0
+
 package schema
 
 // UploadFileRequest upload file request

@@ -1,5 +1,6 @@
-// Package schema defines the data structures used by the Flowise Go SDK.
-// This package contains all the request and response schema for the Flowise API operations.
+// Copyright The yeeaiclub Authors
+// SPDX-License-Identifier: Apache-2.0
+
 package schema
 
 import "encoding/json"
@@ -44,7 +45,7 @@ type RunWorkflowResponseData struct {
 // StreamEvent represents an event in a streaming response.
 // T is the type of data contained in the event.
 type StreamEvent[T any] struct {
-	Err  string `json:"err"`
-	Data T      `json:"data"`
-	Done bool   `json:"done"`
+	Err   string `json:"err"`
+	Data  T      `json:"data"`
+	Event string `json:"event"`
 }
