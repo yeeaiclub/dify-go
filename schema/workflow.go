@@ -23,6 +23,7 @@ type RunWorkflowRequest struct {
 
 // RunWorkflowResponse represents the response from running a workflow.
 type RunWorkflowResponse struct {
+	Event         string                  `json:"event"`
 	WorkflowRunID string                  `json:"workflow_run_id"`
 	TaskID        string                  `json:"task_id"`
 	Data          RunWorkflowResponseData `json:"data"`
@@ -45,7 +46,8 @@ type RunWorkflowResponseData struct {
 // StreamEvent represents an event in a streaming response.
 // T is the type of data contained in the event.
 type StreamEvent[T any] struct {
-	Err   string `json:"err"`
-	Data  T      `json:"data"`
-	Event string `json:"event"`
+	Err  string `json:"err"`
+	Data T      `json:"data"`
+	Type string `json:"event"`
+	Done bool   `json:"done"`
 }

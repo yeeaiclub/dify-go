@@ -3,11 +3,21 @@
 
 package handler
 
-import "net/http"
+import (
+	"io"
+	"net/http"
+)
 
 // Response holds the response data for an API request.
 type Response struct {
 	StatusCode int
 	Body       []byte
 	Headers    http.Header
+}
+
+// Event is an http server-sent event
+type Event struct {
+	Type string
+	Data io.Reader
+	Done bool
 }

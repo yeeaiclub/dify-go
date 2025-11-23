@@ -12,7 +12,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strings"
 	"time"
 
 	log "github.com/yeeaiclub/dify-go/internal/logger"
@@ -69,16 +68,16 @@ func (c *Client) Send(ctx context.Context, req Request) (*Response, error) {
 	return c.doRequest(httpReq)
 }
 
-// SendStream sends a HTTP request and returns a channel of responses for streaming.
-func (c *Client) SendStream(ctx context.Context, req Request) (chan Response, error) {
+// SendStream sends an HTTP request and returns streaming responses via the provided channel.
+func (c *Client) SendStream(ctx context.Context, req Request, evh chan *Event) error {
 	httpReq, err := c.buildRequest(ctx, req)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	httpReq.Header.Set("Accept", "text/event-stream")
 	httpReq.Header.Set("Cache-Control", "no-cache")
 	httpReq.Header.Set("Connection", "keep-alive")
-	return c.doRequestStream(ctx, httpReq)
+	return c.doStreamRequest(ctx, httpReq, evh)
 }
 
 // marshalBody serializes the request body to JSON.
@@ -136,7 +135,7 @@ func (c *Client) doRequest(req *http.Request) (*Response, error) {
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+		return nil, fmt.Errorf("failed to doStreamRequest response body: %w", err)
 	}
 
 	return &Response{
@@ -146,53 +145,52 @@ func (c *Client) doRequest(req *http.Request) (*Response, error) {
 	}, nil
 }
 
-// doRequestStream executes the HTTP request and returns a channel of responses for streaming.
-func (c *Client) doRequestStream(ctx context.Context, req *http.Request) (chan Response, error) {
-	respChan := make(chan Response, defaultResponseChanSize)
-
-	resp, err := c.client.Do(req) //nolint:bodyclose //close in goroutine
+func (c *Client) doStreamRequest(ctx context.Context, req *http.Request, evCh chan<- *Event) error {
+	ctxReq := req.WithContext(ctx)
+	resp, err := c.client.Do(ctxReq)
 	if err != nil {
-		close(respChan)
-		return nil, fmt.Errorf("failed to send HTTP request: %w", err)
+		return fmt.Errorf("failed to send HTTP request: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		close(respChan)
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		return fmt.Errorf("HTTP error resp code: %d", resp.StatusCode)
 	}
 
+	delim := []byte{':', ' '}
 	go func() {
-		defer func() {
-			if err := resp.Body.Close(); err != nil {
-				log.Errorf("failed to close response body: %v", err)
-			}
-			close(respChan)
-		}()
-		scanner := bufio.NewScanner(resp.Body)
-		for scanner.Scan() {
-			line := scanner.Text()
-			if line == "" {
-				continue
-			}
-			if len(line) > 0 && line[0] == ':' {
-				continue
-			}
-			if len(line) >= 6 && line[:5] == "data:" {
-				data := strings.TrimSpace(line[5:])
-				select {
-				case respChan <- Response{
-					StatusCode: resp.StatusCode,
-					Body:       []byte(data),
-					Headers:    resp.Header,
-				}:
-				case <-ctx.Done():
-					break
-				default:
+		defer resp.Body.Close()
+
+		br := bufio.NewReader(resp.Body)
+		for {
+			event := &Event{}
+			bs, readErr := br.ReadBytes('\n')
+			if readErr != nil {
+				if readErr == io.EOF {
+					event.Done = true
+					evCh <- event
+					return
 				}
+				log.Errorf("failed to read: %v", readErr)
+				return
+			}
+			if len(bs) < 2 {
+				continue
+			}
+			spl := bytes.Split(bs, delim)
+			if len(spl) < 2 {
+				continue
+			}
+
+			switch string(spl[0]) {
+			case "event":
+				event.Type = string(bytes.TrimSpace(spl[1]))
+			case "data":
+				event.Data = bytes.NewBuffer(bytes.TrimSpace(spl[1]))
+				evCh <- event
 			}
 		}
 	}()
-	return respChan, nil
+	return nil
 }
 
 // buildURL constructs a complete URL from base URL, path, and query parameters.

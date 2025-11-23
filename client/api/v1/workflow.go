@@ -7,16 +7,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"net/http"
-
-	log "github.com/yeeaiclub/dify-go/internal/logger"
-
 	"github.com/yeeaiclub/dify-go/internal/handler"
 	"github.com/yeeaiclub/dify-go/schema"
+	"net/http"
 )
 
 const (
 	defaultChannelBufferSize = 10
+	StreamMode               = "streaming"
+	BlockingMode             = "blocking"
 )
 
 // Workflow represents a client for interacting with the workflow API endpoints.
@@ -39,9 +38,10 @@ func NewWorkflow(baseURL, apiKey string) *Workflow {
 func (w *Workflow) RunStream(
 	ctx context.Context,
 	req schema.RunWorkflowRequest,
-) (chan schema.RunWorkflowResponse, error) {
-	if req.ResponseMode != "stream" {
-		return nil, errors.New("response mode must be stream")
+	respCh chan schema.StreamEvent[schema.RunWorkflowResponse],
+) error {
+	if req.ResponseMode != StreamMode {
+		return nil
 	}
 
 	r, err := handler.NewRequestBuilder().
@@ -51,42 +51,58 @@ func (w *Workflow) RunStream(
 		Method(http.MethodPost).
 		Body(req).
 		Build()
+
 	if err != nil {
-		return nil, err
+		return err
 	}
-	ch := make(chan schema.RunWorkflowResponse, defaultChannelBufferSize)
-	eventCh, err := w.client.SendStream(ctx, r)
-	if err != nil {
-		return nil, err
-	}
+
 	go func() {
-		defer close(ch)
+		evh := make(chan *handler.Event, defaultChannelBufferSize)
+		defer close(respCh) // Ensure the response channel is closed when done
+
+		// Send the streaming request
+		err := w.client.SendStream(ctx, r, evh)
+		if err != nil {
+			respCh <- schema.StreamEvent[schema.RunWorkflowResponse]{
+				Err: err.Error(), // Send the actual error, not ctx.Err()
+			}
+			return
+		}
+
+		// Process the stream events
 		for {
 			select {
 			case <-ctx.Done():
-				log.Debugf("context canceled: %v", ctx.Err())
+				respCh <- schema.StreamEvent[schema.RunWorkflowResponse]{
+					Err: ctx.Err().Error(),
+				}
 				return
-			case value, ok := <-eventCh:
+			case ev, ok := <-evh:
+				if ev.Done {
+					respCh <- schema.StreamEvent[schema.RunWorkflowResponse]{
+						Done: true,
+					}
+					return
+				}
 				if !ok {
 					return
 				}
-				var resp schema.RunWorkflowResponse
-				err := json.Unmarshal(value.Body, &resp)
+				var data schema.RunWorkflowResponse
+				err := json.NewDecoder(ev.Data).Decode(&data)
 				if err != nil {
-					log.Errorf("failed to unmarshal json: %v", err)
-					continue
-				}
-				select {
-				case ch <- resp:
-					// Message sent successfully
-				case <-ctx.Done():
-					// Context canceled while sending
+					respCh <- schema.StreamEvent[schema.RunWorkflowResponse]{
+						Err: err.Error(),
+					}
 					return
+				}
+				respCh <- schema.StreamEvent[schema.RunWorkflowResponse]{
+					Type: ev.Type,
+					Data: data,
 				}
 			}
 		}
 	}()
-	return ch, nil
+	return nil
 }
 
 // Run executes a workflow in blocking mode, Cannot execute if there is no published workflow.
@@ -94,7 +110,7 @@ func (w *Workflow) Run(
 	ctx context.Context,
 	req schema.RunWorkflowRequest,
 ) (schema.RunWorkflowResponse, error) {
-	if req.ResponseMode != "blocking" {
+	if req.ResponseMode != BlockingMode {
 		return schema.RunWorkflowResponse{}, errors.New("response mode must be blocking")
 	}
 
