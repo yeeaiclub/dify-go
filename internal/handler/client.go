@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -21,8 +22,7 @@ import (
 
 const (
 	// defaultTimeout is the default timeout duration for the http client (in seconds).
-	defaultTimeout          = 30
-	defaultResponseChanSize = 10
+	defaultTimeout = 30
 )
 
 // ClientOptions defines config options for the client.
@@ -145,9 +145,10 @@ func (c *Client) doRequest(req *http.Request) (*Response, error) {
 	}, nil
 }
 
-func (c *Client) doStreamRequest(ctx context.Context, req *http.Request, evCh chan<- *Event) error {
+// doStreamRequest executes the HTTP request and returns streaming responses via the provided channel.
+func (c *Client) doStreamRequest(ctx context.Context, req *http.Request, evCh chan *Event) error {
 	ctxReq := req.WithContext(ctx)
-	resp, err := c.client.Do(ctxReq)
+	resp, err := c.client.Do(ctxReq) //nolint:bodyclose // ignore the error, it will be handled in the next step
 	if err != nil {
 		return fmt.Errorf("failed to send HTTP request: %w", err)
 	}
@@ -156,37 +157,42 @@ func (c *Client) doStreamRequest(ctx context.Context, req *http.Request, evCh ch
 		return fmt.Errorf("HTTP error resp code: %d", resp.StatusCode)
 	}
 
-	delim := []byte{':', ' '}
 	go func() {
-		defer resp.Body.Close()
-
-		br := bufio.NewReader(resp.Body)
+		defer func() {
+			err = resp.Body.Close()
+			if err != nil {
+				log.Errorf("failed to close the http body: %v", err)
+			}
+		}()
+		reader := bufio.NewReader(resp.Body)
 		for {
-			event := &Event{}
-			bs, readErr := br.ReadBytes('\n')
-			if readErr != nil {
-				if readErr == io.EOF {
-					event.Done = true
-					evCh <- event
+			line, err := reader.ReadBytes('\n')
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					evCh <- &Event{Done: true}
 					return
 				}
-				log.Errorf("failed to read: %v", readErr)
+				log.Errorf("failed to read: %v", err)
 				return
 			}
-			if len(bs) < 2 {
+			line = bytes.TrimRight(line, "\r\n")
+			if bytes.IndexByte(line, ':') == -1 {
 				continue
 			}
-			spl := bytes.Split(bs, delim)
-			if len(spl) < 2 {
-				continue
+			field := line
+			value := []byte{}
+			if i := bytes.IndexByte(line, ':'); i >= 0 {
+				field = line[:i]
+				if i+1 < len(line) {
+					value = line[i+1:]
+					if len(value) > 0 && value[0] == ' ' {
+						value = value[1:]
+					}
+				}
 			}
 
-			switch string(spl[0]) {
-			case "event":
-				event.Type = string(bytes.TrimSpace(spl[1]))
-			case "data":
-				event.Data = bytes.NewBuffer(bytes.TrimSpace(spl[1]))
-				evCh <- event
+			if string(field) == "data" {
+				evCh <- &Event{Data: bytes.NewBuffer(value), Type: string(field)}
 			}
 		}
 	}()

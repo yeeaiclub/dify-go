@@ -7,27 +7,30 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
+
 	"github.com/yeeaiclub/dify-go/internal/handler"
 	"github.com/yeeaiclub/dify-go/schema"
-	"net/http"
 )
 
 const (
 	defaultChannelBufferSize = 10
-	StreamMode               = "streaming"
-	BlockingMode             = "blocking"
+	// StreamMode represents the streaming response mode for workflow execution
+	StreamMode = "streaming"
+	// BlockingMode represents the blocking response mode for workflow execution
+	BlockingMode = "blocking"
 )
 
-// Workflow represents a client for interacting with the workflow API endpoints.
-type Workflow struct {
+// WorkflowService represents a client for interacting with the workflow API endpoints.
+type WorkflowService struct {
 	client  *handler.Client // HTTP client for making API requests
 	apiKey  string          // API key for authentication
 	baseURL string          // Base URL of the API server
 }
 
-// NewWorkflow creates a new Workflow client instance.
-func NewWorkflow(baseURL, apiKey string) *Workflow {
-	return &Workflow{
+// NewWorkflowService creates a new Workflow client instance.
+func NewWorkflowService(baseURL, apiKey string) *WorkflowService {
+	return &WorkflowService{
 		client:  handler.NewClient(),
 		apiKey:  apiKey,
 		baseURL: baseURL,
@@ -35,7 +38,7 @@ func NewWorkflow(baseURL, apiKey string) *Workflow {
 }
 
 // RunStream executes a workflow in streaming mode. Cannot execute if there is no published workflow.
-func (w *Workflow) RunStream(
+func (w *WorkflowService) RunStream(
 	ctx context.Context,
 	req schema.RunWorkflowRequest,
 	respCh chan schema.StreamEvent[schema.RunWorkflowResponse],
@@ -51,7 +54,6 @@ func (w *Workflow) RunStream(
 		Method(http.MethodPost).
 		Body(req).
 		Build()
-
 	if err != nil {
 		return err
 	}
@@ -78,13 +80,13 @@ func (w *Workflow) RunStream(
 				}
 				return
 			case ev, ok := <-evh:
+				if !ok {
+					return
+				}
 				if ev.Done {
 					respCh <- schema.StreamEvent[schema.RunWorkflowResponse]{
 						Done: true,
 					}
-					return
-				}
-				if !ok {
 					return
 				}
 				var data schema.RunWorkflowResponse
@@ -106,7 +108,7 @@ func (w *Workflow) RunStream(
 }
 
 // Run executes a workflow in blocking mode, Cannot execute if there is no published workflow.
-func (w *Workflow) Run(
+func (w *WorkflowService) Run(
 	ctx context.Context,
 	req schema.RunWorkflowRequest,
 ) (schema.RunWorkflowResponse, error) {

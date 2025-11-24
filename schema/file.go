@@ -9,6 +9,7 @@ type UploadFileRequest struct {
 	RequestBody UploadFileBody `json:"user"`
 }
 
+// UploadFileBody contains user information for file upload requests
 type UploadFileBody struct {
 	User string `json:"user"`
 }
