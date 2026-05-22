@@ -43,11 +43,52 @@ type RunWorkflowResponseData struct {
 	FinishedAt  int            `json:"finished_at"`
 }
 
-// StreamEvent represents an event in a streaming response.
-// T is the type of data contained in the event.
-type StreamEvent[T any] struct {
-	Err  string `json:"err"`
-	Data T      `json:"data"`
-	Type string `json:"event"`
-	Done bool   `json:"done"`
+type WorkflowRunLogQuery struct {
+	Keyword                   string `url:"keyword"`
+	Status                    string `url:"status"`
+	Page                      int    `url:"page"`
+	Limit                     int    `url:"limit"`
+	CreatedAtBefore           string `url:"created_at__before"`
+	CreatedAtAfter            string `url:"created_at__after"`
+	CreatedByEndUserSessionID string `url:"created_by_end_user_session_id"`
+	CreatedByAccount          string `url:"created_by_account"`
+}
+
+type WorkflowLogsResponse struct {
+	Page    int                        `json:"page"`
+	Limit   int                        `json:"limit"`
+	Total   int                        `json:"total"`
+	HasMore bool                       `json:"has_more"`
+	Data    []WorkflowLogsResponseData `json:"data"`
+}
+
+type WorkflowLogsResponseData struct {
+	ID                string            `json:"id"`
+	WorkflowRunDetail WorkflowRunDetail `json:"workflow_run"`
+	CreatedFrom       string            `json:"created_from"`
+	CreatedByRole     string            `json:"created_by_role"`
+	CreatedByAccount  *string           `json:"created_by_account,omitempty"`
+	CreatedByEndUser  *CreatedByEndUser `json:"created_by_end_user,omitempty"`
+	CreatedAt         int64             `json:"created_at"`
+}
+
+type WorkflowRunDetail struct {
+	ID              string  `json:"id"`
+	Version         string  `json:"version"`
+	Status          string  `json:"status"`
+	Error           *string `json:"error,omitempty"`
+	ElapsedTime     float64 `json:"elapsed_time"`
+	TotalTokens     int     `json:"total_tokens"`
+	TotalSteps      int     `json:"total_steps"`
+	CreatedAt       int64   `json:"created_at"`
+	FinishedAt      int64   `json:"finished_at"`
+	ExceptionsCount int     `json:"exceptions_count"`
+	TriggeredFrom   string  `json:"triggered_from"`
+}
+
+type CreatedByEndUser struct {
+	ID          string `json:"id"`
+	Type        string `json:"type"`
+	IsAnonymous bool   `json:"is_anonymous"`
+	SessionID   string `json:"session_id"`
 }

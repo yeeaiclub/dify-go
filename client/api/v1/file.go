@@ -14,18 +14,17 @@ import (
 
 // FileService is a service for file operations.
 type FileService struct {
-	client  *handler.Client // HTTP client for making API requests
-	apiKey  string          // API key for authentication
-	baseURL string          // Base URL of the API server
+	*BaseClient
 }
 
 // NewFileService creates a new FileService instance with the provided baseURL and apiKey.
 func NewFileService(baseURL, apiKey string) *FileService {
-	return &FileService{
+	baseClient := &BaseClient{
 		client:  handler.NewClient(),
 		apiKey:  apiKey,
 		baseURL: baseURL,
 	}
+	return &FileService{baseClient}
 }
 
 // Upload upload file to dify.

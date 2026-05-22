@@ -23,18 +23,17 @@ const (
 
 // WorkflowService represents a client for interacting with the workflow API endpoints.
 type WorkflowService struct {
-	client  *handler.Client // HTTP client for making API requests
-	apiKey  string          // API key for authentication
-	baseURL string          // Base URL of the API server
+	*BaseClient
 }
 
 // NewWorkflowService creates a new Workflow client instance.
 func NewWorkflowService(baseURL, apiKey string) *WorkflowService {
-	return &WorkflowService{
+	baseClient := &BaseClient{
 		client:  handler.NewClient(),
 		apiKey:  apiKey,
 		baseURL: baseURL,
 	}
+	return &WorkflowService{baseClient}
 }
 
 // RunStream executes a workflow in streaming mode. Cannot execute if there is no published workflow.
@@ -87,6 +86,36 @@ func (w *WorkflowService) Run(
 	err = json.Unmarshal(resp.Body, &respData)
 	if err != nil {
 		return schema.RunWorkflowResponse{}, err
+	}
+	return respData, nil
+}
+
+// GetLogs retrieves workflow execution logs with optional filtering.
+// Supports pagination and filtering by status, keyword, and time range.
+func (w *WorkflowService) GetLogs(
+	ctx context.Context,
+	query schema.WorkflowRunLogQuery,
+) (schema.WorkflowLogsResponse, error) {
+	r, err := handler.NewRequestBuilder().
+		BaseURL(w.baseURL).
+		Token(w.apiKey).
+		Path("v1/workflows/logs").
+		Method(http.MethodGet).
+		Query(query).
+		Build()
+
+	if err != nil {
+		return schema.WorkflowLogsResponse{}, err
+	}
+
+	resp, err := w.client.Send(ctx, r)
+	if err != nil {
+		return schema.WorkflowLogsResponse{}, err
+	}
+	var respData schema.WorkflowLogsResponse
+	err = json.Unmarshal(resp.Body, &respData)
+	if err != nil {
+		return schema.WorkflowLogsResponse{}, err
 	}
 	return respData, nil
 }
