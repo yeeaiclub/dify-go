@@ -4,13 +4,12 @@
 package handler
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
+	"iter"
 	"net/http"
 	"net/url"
 	"time"
@@ -69,15 +68,15 @@ func (c *Client) Send(ctx context.Context, req Request) (*Response, error) {
 }
 
 // SendStream sends an HTTP request and returns streaming responses via the provided channel.
-func (c *Client) SendStream(ctx context.Context, req Request, evh chan *Event) error {
+func (c *Client) SendStream(ctx context.Context, req Request) (iter.Seq2[[]byte, error], error) {
 	httpReq, err := c.buildRequest(ctx, req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	httpReq.Header.Set("Accept", "text/event-stream")
 	httpReq.Header.Set("Cache-Control", "no-cache")
 	httpReq.Header.Set("Connection", "keep-alive")
-	return c.doStreamRequest(ctx, httpReq, evh)
+	return c.doStreamRequest(ctx, httpReq)
 }
 
 // marshalBody serializes the request body to JSON.
@@ -146,57 +145,18 @@ func (c *Client) doRequest(req *http.Request) (*Response, error) {
 }
 
 // doStreamRequest executes the HTTP request and returns streaming responses via the provided channel.
-func (c *Client) doStreamRequest(ctx context.Context, req *http.Request, evCh chan *Event) error {
+func (c *Client) doStreamRequest(ctx context.Context, req *http.Request) (iter.Seq2[[]byte, error], error) {
 	ctxReq := req.WithContext(ctx)
-	resp, err := c.client.Do(ctxReq) //nolint:bodyclose // ignore the error, it will be handled in the next step
+	resp, err := c.client.Do(ctxReq)
 	if err != nil {
-		return fmt.Errorf("failed to send HTTP request: %w", err)
+		return nil, fmt.Errorf("failed to send HTTP request: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("HTTP error resp code: %d", resp.StatusCode)
+		resp.Body.Close()
+		return nil, fmt.Errorf("HTTP error resp code: %d", resp.StatusCode)
 	}
-
-	go func() {
-		defer func() {
-			err = resp.Body.Close()
-			if err != nil {
-				log.Errorf("failed to close the http body: %v", err)
-			}
-		}()
-		reader := bufio.NewReader(resp.Body)
-		for {
-			line, err := reader.ReadBytes('\n')
-			if err != nil {
-				if errors.Is(err, io.EOF) {
-					evCh <- &Event{Done: true}
-					return
-				}
-				log.Errorf("failed to read: %v", err)
-				return
-			}
-			line = bytes.TrimRight(line, "\r\n")
-			if bytes.IndexByte(line, ':') == -1 {
-				continue
-			}
-			field := line
-			value := []byte{}
-			if i := bytes.IndexByte(line, ':'); i >= 0 {
-				field = line[:i]
-				if i+1 < len(line) {
-					value = line[i+1:]
-					if len(value) > 0 && value[0] == ' ' {
-						value = value[1:]
-					}
-				}
-			}
-
-			if string(field) == "data" {
-				evCh <- &Event{Data: bytes.NewBuffer(value), Type: string(field)}
-			}
-		}
-	}()
-	return nil
+	return sseHandler(resp.Body), nil
 }
 
 // buildURL constructs a complete URL from base URL, path, and query parameters.

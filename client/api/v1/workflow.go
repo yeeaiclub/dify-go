@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"iter"
 	"net/http"
 
 	"github.com/yeeaiclub/dify-go/internal/handler"
@@ -14,7 +15,6 @@ import (
 )
 
 const (
-	defaultChannelBufferSize = 10
 	// StreamMode represents the streaming response mode for workflow execution
 	StreamMode = "streaming"
 	// BlockingMode represents the blocking response mode for workflow execution
@@ -41,10 +41,9 @@ func NewWorkflowService(baseURL, apiKey string) *WorkflowService {
 func (w *WorkflowService) RunStream(
 	ctx context.Context,
 	req schema.RunWorkflowRequest,
-	respCh chan schema.StreamEvent[schema.RunWorkflowResponse],
-) error {
+) (iter.Seq2[[]byte, error], error) {
 	if req.ResponseMode != StreamMode {
-		return nil
+		return nil, errors.New("invalid response mode")
 	}
 
 	r, err := handler.NewRequestBuilder().
@@ -55,56 +54,10 @@ func (w *WorkflowService) RunStream(
 		Body(req).
 		Build()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	go func() {
-		evh := make(chan *handler.Event, defaultChannelBufferSize)
-		defer close(respCh) // Ensure the response channel is closed when done
-
-		// Send the streaming request
-		err := w.client.SendStream(ctx, r, evh)
-		if err != nil {
-			respCh <- schema.StreamEvent[schema.RunWorkflowResponse]{
-				Err: err.Error(), // Send the actual error, not ctx.Err()
-			}
-			return
-		}
-
-		// Process the stream events
-		for {
-			select {
-			case <-ctx.Done():
-				respCh <- schema.StreamEvent[schema.RunWorkflowResponse]{
-					Err: ctx.Err().Error(),
-				}
-				return
-			case ev, ok := <-evh:
-				if !ok {
-					return
-				}
-				if ev.Done {
-					respCh <- schema.StreamEvent[schema.RunWorkflowResponse]{
-						Done: true,
-					}
-					return
-				}
-				var data schema.RunWorkflowResponse
-				err := json.NewDecoder(ev.Data).Decode(&data)
-				if err != nil {
-					respCh <- schema.StreamEvent[schema.RunWorkflowResponse]{
-						Err: err.Error(),
-					}
-					return
-				}
-				respCh <- schema.StreamEvent[schema.RunWorkflowResponse]{
-					Type: ev.Type,
-					Data: data,
-				}
-			}
-		}
-	}()
-	return nil
+	return w.client.SendStream(ctx, r)
 }
 
 // Run executes a workflow in blocking mode, Cannot execute if there is no published workflow.
