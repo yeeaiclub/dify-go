@@ -153,7 +153,7 @@ func (c *Client) doStreamRequest(ctx context.Context, req *http.Request) (iter.S
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		resp.Body.Close()
+		resp.Body.Close() //nolint:gosec // ignoring error as response body is being discarded on error path
 		return nil, fmt.Errorf("HTTP error resp code: %d", resp.StatusCode)
 	}
 	return sseHandler(resp.Body), nil

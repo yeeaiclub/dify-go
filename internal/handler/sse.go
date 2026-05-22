@@ -10,12 +10,13 @@ import (
 )
 
 var (
-	sseBufferSize = 64 * 1024 // 64KB
-	sseDataPrefix = "data:"
+	sseBufferSize    = 64 * 1024 // 64KB
+	sseDataPrefix    = "data:"
+	sseInitialBufCap = 4096 // 4KB initial buffer capacity
 
 	pool = sync.Pool{
 		New: func() any {
-			buf := make([]byte, 0, 4096)
+			buf := make([]byte, 0, sseInitialBufCap)
 			return &buf
 		},
 	}
@@ -53,7 +54,7 @@ func sseHandler(body io.ReadCloser) iter.Seq2[[]byte, error] {
 			}
 		}
 		if err := scanner.Err(); err != nil {
-			yield(nil, fmt.Errorf("sseHandler scanning error: %v", err))
+			yield(nil, fmt.Errorf("sseHandler scanning error: %w", err))
 		}
 	}
 }

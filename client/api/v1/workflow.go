@@ -103,7 +103,6 @@ func (w *WorkflowService) GetLogs(
 		Method(http.MethodGet).
 		Query(query).
 		Build()
-
 	if err != nil {
 		return schema.WorkflowLogsResponse{}, err
 	}

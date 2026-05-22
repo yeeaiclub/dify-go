@@ -60,6 +60,9 @@ linters:
       - linters:
           - funlen
         path: _test\.go
+      - linters:
+          - goconst
+        path: _test\.go
 formatters:
   enable:
     - gofumpt

@@ -43,6 +43,7 @@ type RunWorkflowResponseData struct {
 	FinishedAt  int            `json:"finished_at"`
 }
 
+// WorkflowRunLogQuery represents the query parameters for workflow run logs.
 type WorkflowRunLogQuery struct {
 	Keyword                   string `url:"keyword"`
 	Status                    string `url:"status"`
@@ -54,6 +55,7 @@ type WorkflowRunLogQuery struct {
 	CreatedByAccount          string `url:"created_by_account"`
 }
 
+// WorkflowLogsResponse represents the response for workflow logs.
 type WorkflowLogsResponse struct {
 	Page    int                        `json:"page"`
 	Limit   int                        `json:"limit"`
@@ -62,6 +64,7 @@ type WorkflowLogsResponse struct {
 	Data    []WorkflowLogsResponseData `json:"data"`
 }
 
+// WorkflowLogsResponseData represents a single workflow log entry.
 type WorkflowLogsResponseData struct {
 	ID                string            `json:"id"`
 	WorkflowRunDetail WorkflowRunDetail `json:"workflow_run"`
@@ -72,6 +75,7 @@ type WorkflowLogsResponseData struct {
 	CreatedAt         int64             `json:"created_at"`
 }
 
+// WorkflowRunDetail represents the detailed information of a workflow run.
 type WorkflowRunDetail struct {
 	ID              string  `json:"id"`
 	Version         string  `json:"version"`
@@ -86,6 +90,7 @@ type WorkflowRunDetail struct {
 	TriggeredFrom   string  `json:"triggered_from"`
 }
 
+// CreatedByEndUser represents the end user who created the workflow run.
 type CreatedByEndUser struct {
 	ID          string `json:"id"`
 	Type        string `json:"type"`

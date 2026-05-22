@@ -1,5 +1,9 @@
+// Copyright The yeeaiclub Authors
+// SPDX-License-Identifier: Apache-2.0
+
 package schema
 
+// ApplicationParameters represents the parameters for an application.
 type ApplicationParameters struct {
 	OpeningStatement              string           `json:"opening_statement,omitempty"`
 	SuggestedQuestions            []string         `json:"suggested_questions,omitempty"`
