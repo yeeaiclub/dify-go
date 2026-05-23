@@ -22,11 +22,22 @@ import (
 const (
 	// defaultTimeout is the default timeout duration for the http client (in seconds).
 	defaultTimeout = 30
+	// defaultMaxIdleConns is the default maximum number of idle connections.
+	defaultMaxIdleConns = 100
+	// defaultMaxIdleConnsPerHost is the default maximum number of idle connections per host.
+	defaultMaxIdleConnsPerHost = 10
+	// defaultIdleConnTimeout is the default idle connection timeout in seconds.
+	defaultIdleConnTimeout = 90
 )
 
 // ClientOptions defines config options for the client.
 type ClientOptions struct {
 	Timeout time.Duration
+	// Transport settings for connection pool
+	MaxIdleConns        int
+	MaxIdleConnsPerHost int
+	MaxConnsPerHost     int
+	IdleConnTimeout     time.Duration
 }
 
 // ClientOption defines a functional option for configuring the client.
@@ -39,6 +50,34 @@ func WithTimeout(timeout time.Duration) ClientOption {
 	}
 }
 
+// WithMaxIdleConns sets the maximum number of idle connections across all hosts.
+func WithMaxIdleConns(n int) ClientOption {
+	return func(options *ClientOptions) {
+		options.MaxIdleConns = n
+	}
+}
+
+// WithMaxIdleConnsPerHost sets the maximum number of idle connections per host.
+func WithMaxIdleConnsPerHost(n int) ClientOption {
+	return func(options *ClientOptions) {
+		options.MaxIdleConnsPerHost = n
+	}
+}
+
+// WithMaxConnsPerHost sets the maximum number of connections per host.
+func WithMaxConnsPerHost(n int) ClientOption {
+	return func(options *ClientOptions) {
+		options.MaxConnsPerHost = n
+	}
+}
+
+// WithIdleConnTimeout sets the timeout for idle connections.
+func WithIdleConnTimeout(timeout time.Duration) ClientOption {
+	return func(options *ClientOptions) {
+		options.IdleConnTimeout = timeout
+	}
+}
+
 // Client is a http client that execute requests.
 type Client struct {
 	client *http.Client
@@ -47,14 +86,27 @@ type Client struct {
 // NewClient returns a client to execute requests.
 func NewClient(opts ...ClientOption) *Client {
 	opt := &ClientOptions{
-		Timeout: defaultTimeout * time.Second,
+		Timeout:             defaultTimeout * time.Second,
+		MaxIdleConns:        defaultMaxIdleConns,
+		MaxIdleConnsPerHost: defaultMaxIdleConnsPerHost,
+		IdleConnTimeout:     defaultIdleConnTimeout * time.Second,
 	}
 
 	for _, option := range opts {
 		option(opt)
 	}
 
-	client := &http.Client{Timeout: opt.Timeout}
+	transport := &http.Transport{
+		MaxIdleConns:        opt.MaxIdleConns,
+		MaxIdleConnsPerHost: opt.MaxIdleConnsPerHost,
+		MaxConnsPerHost:     opt.MaxConnsPerHost,
+		IdleConnTimeout:     opt.IdleConnTimeout,
+	}
+
+	client := &http.Client{
+		Timeout:   opt.Timeout,
+		Transport: transport,
+	}
 	return &Client{client: client}
 }
 
